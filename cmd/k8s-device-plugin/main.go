@@ -21,7 +21,6 @@ import (
 	"strconv"
 	"time"
 
-	// "github.com/aarnaud/k8s-directx-device-plugin/pkg/gpu-detection"
 	"github.com/golang/glog"
 	"github.com/karalabe/hid"
 	pluginapi "k8s.io/kubernetes/pkg/kubelet/apis/deviceplugin/v1beta1"
@@ -33,8 +32,6 @@ const (
 	resourceName = "ntcu/hid"
 	// deviceClass  = "class/5B45201D-F2F2-4F3B-85BB-30FF1F953599"
 	deviceClass = "class/4d1e55b2-f16f-11cf-88cb-001111000030"
-	// VirtualizedMultiplier : Multiply the number of devices by 'VirtualizedMultiplier' 1 = Non-virtualized, 5 = (all devices) * 5
-	VirtualizedMultiplier = 5
 )
 
 // stubAllocFunc creates and returns allocation response for the input allocate request
@@ -42,21 +39,9 @@ func allocFunc(r *pluginapi.AllocateRequest, devs map[string]pluginapi.Device) (
 	var responses pluginapi.AllocateResponse
 	for _, req := range r.ContainerRequests {
 		response := &pluginapi.ContainerAllocateResponse{}
-		// for _, requestID := range req.DevicesIDs {
 		for _, requestID := range req.DevicesIDs {
-			/*
-				gpu := gpu_detection.GetGPUInfo(requestID)
-				if gpu == nil {
-					return nil, fmt.Errorf("invalid allocation request with non-existing device %s", requestID)
-				}
-
-				if getGPUHealth(gpu) != pluginapi.Healthy {
-					return nil, fmt.Errorf("invalid allocation request with unhealthy device: %s", requestID)
-				}
-			*/
 
 			glog.Infof("requestID: %s", requestID)
-
 			response.Devices = append(response.Devices, &pluginapi.DeviceSpec{
 				HostPath:      deviceClass,
 				ContainerPath: "",
@@ -76,72 +61,43 @@ func allocFunc(r *pluginapi.AllocateRequest, devs map[string]pluginapi.Device) (
 }
 
 /*
-func getGPUHealth(gpu *gpu_detection.GPUInfo) string {
-	if gpu.IsStatusOK() {
-		return pluginapi.Healthy
-	}
-	return pluginapi.Unhealthy
-}
-*/
-
 func getHIDHealth(deviceInfo *hid.DeviceInfo) string {
-	/* var device, err = v.Open()
-	var _, err = v.Open()
-	if err != nil {
-		return pluginapi.Unhealthy
-	}
-	return pluginapi.Healthy*/
+	//return pluginapi.Unhealthy
 	return pluginapi.Healthy
 }
-
+*/
 func main() {
 
 	flag.Set("alsologtostderr", "true")
 	flag.Parse()
 	devs := []*pluginapi.Device{}
-	//gpus := gpu_detection.GetGPUList()
 	hids := hid.Enumerate(0, 0)
 	pluginSocksDir := os.Getenv("PLUGIN_SOCK_DIR")
 	if pluginSocksDir == "" {
 		pluginSocksDir = pluginapi.DevicePluginPath
 	}
-	/*
-		gpuMatchName := os.Getenv("DIRECTX_GPU_MATCH_NAME")
-		if gpuMatchName == "" {
-			gpuMatchName = "nvidia"
-		}
-	*/
-	/*
-		for _, gpuInfo := range gpus {
-			if !gpuInfo.MatchName(gpuMatchName) {
-				glog.Warningf("'%s' doesn't match  '%s', ignoring this gpu", gpuInfo.Name, gpuMatchName)
-				continue
-			}
 
-			devs = append(devs, &pluginapi.Device{
-				ID:     gpuInfo.PNPDeviceID,
-				Health: getGPUHealth(&gpuInfo),
-			})
-			glog.Infof("GPU %s id: %s", gpuInfo.Name, gpuInfo.PNPDeviceID)
-		}*/
+	for _, deviceInfo := range hids {
+		devs = append(devs, &pluginapi.Device{
+			ID:     deviceInfo.Path,
+			Health: pluginapi.Healthy,
+		})
+		glog.Infof("deviceInfo: %s", deviceInfo)
+	}
 
-	for i := 0; i < VirtualizedMultiplier; i++ {
-		for _, deviceInfo := range hids {
-			vnumber := ""
-			if VirtualizedMultiplier != 1 {
-				vnumber = "v" + strconv.Itoa(i)
-			}
-			devs = append(devs, &pluginapi.Device{
-				// NVIDIA GeForce GTX 1660
-				//ID:     gpuInfo.PNPDeviceID,
-				ID: vnumber + deviceInfo.Path,
-				// PCI\VEN_10DE&DEV_2184&SUBSYS_11673842&REV_A1\4&2DB3ECDA&0&0008
-				// \\?\hid#vid_096e&pid_0006#6&1170e74d&0&0000#{4d1e55b2-f16f-11cf-88cb-001111000030}
-				// Health: getGPUHealth(&gpuInfo),
-				Health: getHIDHealth(&deviceInfo),
-			})
-			glog.Infof("deviceInfo: %s", deviceInfo)
-		}
+	virtualHidDeviceEnv := os.Getenv("VIRTUAL_HID_DEVICE")
+	virtualHidDevice := 0
+	i, err := strconv.Atoi(virtualHidDeviceEnv)
+	if err == nil {
+		virtualHidDevice = i
+	}
+	for i := 0; i < virtualHidDevice; i++ {
+
+		devs = append(devs, &pluginapi.Device{
+			ID:     "virtualHidDevice" + string(i+1),
+			Health: pluginapi.Healthy,
+		})
+		glog.Infof("deviceInfo: virtualHidDevice" + string(i+1))
 	}
 
 	glog.Infof("pluginSocksDir: %s", pluginSocksDir)
