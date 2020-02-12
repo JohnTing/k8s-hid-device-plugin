@@ -50,9 +50,7 @@ func allocFunc(r *pluginapi.AllocateRequest, devs map[string]pluginapi.Device) (
 			if response.Envs == nil {
 				response.Envs = make(map[string]string)
 			}
-			//response.Envs["DIRECTX_GPU_Name"] = gpu.Name
-			//response.Envs["DIRECTX_GPU_PNPDeviceID"] = gpu.PNPDeviceID
-			//response.Envs["DIRECTX_GPU_DriverVersion"] = gpu.DriverVersion
+			//response.Envs["Name"] = "name"
 		}
 		responses.ContainerResponses = append(responses.ContainerResponses, response)
 	}
@@ -60,15 +58,12 @@ func allocFunc(r *pluginapi.AllocateRequest, devs map[string]pluginapi.Device) (
 	return &responses, nil
 }
 
-/*
-func getHIDHealth(deviceInfo *hid.DeviceInfo) string {
-	//return pluginapi.Unhealthy
-	return pluginapi.Healthy
-}
-*/
 func main() {
 
 	flag.Set("alsologtostderr", "true")
+	virtualHidDevice := 0
+	flag.IntVar(&virtualHidDevice, "vhd", 0, "set number of virtual Hid Device")
+
 	flag.Parse()
 	devs := []*pluginapi.Device{}
 	hids := hid.Enumerate(0, 0)
@@ -77,27 +72,44 @@ func main() {
 		pluginSocksDir = pluginapi.DevicePluginPath
 	}
 
-	for _, deviceInfo := range hids {
+	glog.Infof("%d hid devices found", len(hids))
+
+	for i, deviceInfo := range hids {
 		devs = append(devs, &pluginapi.Device{
-			ID:     deviceInfo.Path,
+			ID:     deviceInfo.Product + string(i),
 			Health: pluginapi.Healthy,
 		})
-		glog.Infof("deviceInfo: %s", deviceInfo)
+		glog.Infof("\ndevice number: %d\n  Path: %s\n  ProductID: %d\t  VendorID: %d\n  Product: %s\t  Manufacturer: %s\n  Interface: %d\n\n",
+			i, deviceInfo.Path, deviceInfo.ProductID, deviceInfo.VendorID, deviceInfo.Product, deviceInfo.Manufacturer, deviceInfo.Interface)
+		/*
+			glog.Infof("device number: %d", i)
+			glog.Infof("Path: %s", deviceInfo.Path)
+			glog.Infof("ProductID: %d", deviceInfo.ProductID)
+			glog.Infof("VendorID: %d", deviceInfo.VendorID)
+			glog.Infof("Product: %s", deviceInfo.Product)
+			glog.Infof("Manufacturer: %s", deviceInfo.Manufacturer)
+			glog.Infof("Interface: %d", deviceInfo.Interface)*/
 	}
 
-	virtualHidDeviceEnv := os.Getenv("VIRTUAL_HID_DEVICE")
-	virtualHidDevice := 0
-	i, err := strconv.Atoi(virtualHidDeviceEnv)
-	if err == nil {
-		virtualHidDevice = i
-	}
+	/*
+		if len(os.Args) >= 2 {
+			// virtualHidDeviceEnv := os.Getenv("VIRTUAL_HID_DEVICE")
+			virtualHidDeviceEnv := os.Args[1]
+			i, err := strconv.Atoi(virtualHidDeviceEnv)
+			if err == nil {
+				virtualHidDevice = i
+			}
+		}*/
+
+	glog.Infof("add %d virtual Hid Device", virtualHidDevice)
+
 	for i := 0; i < virtualHidDevice; i++ {
-
+		virtualHidDeviceID := "virtualHidDevice" + strconv.Itoa(i)
 		devs = append(devs, &pluginapi.Device{
-			ID:     "virtualHidDevice" + string(i+1),
+			ID:     virtualHidDeviceID,
 			Health: pluginapi.Healthy,
 		})
-		glog.Infof("deviceInfo: virtualHidDevice" + string(i+1))
+		glog.Infof("add " + virtualHidDeviceID)
 	}
 
 	glog.Infof("pluginSocksDir: %s", pluginSocksDir)
